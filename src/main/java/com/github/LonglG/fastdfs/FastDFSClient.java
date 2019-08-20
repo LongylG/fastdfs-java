@@ -12,6 +12,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class FastDFSClient {
 
@@ -24,34 +25,55 @@ public class FastDFSClient {
     private StorageServer storageServer;
 
     public FastDFSClient(String configFile) throws IOException, MyException {
-        ClientGlobal.init(configFile);
 
-        trackerClient = new TrackerClient();
+            ClientGlobal.init(configFile);
 
-        trackerServer = trackerClient.getConnection();
+            trackerClient = new TrackerClient();
 
-        storageServer = null;
+            trackerServer = trackerClient.getConnection();
 
-        storageClient = new StorageClient(trackerServer, storageServer);
+            storageServer = null;
+
+            storageClient = new StorageClient(trackerServer, storageServer);
+
     }
 
-
-    private Map<String, String> upload(String filePath, String storeExtName, Map<String, String> metaHeads) throws IOException, MyException {
+    /**
+     *
+     * @param filePath 上传文件路径
+     * @param storeExtName 存储后拓展名
+     * @param metaHeads 元数据
+     * @return
+     * @throws IOException
+     * @throws MyException
+     */
+    public Map<String, String> upload(String filePath, String storeExtName, Map<String, String> metaHeads) throws IOException, MyException {
         NameValuePair[] nvp = new NameValuePair[metaHeads.size()];
-        int index = 0;
+        AtomicInteger index = new AtomicInteger();
         metaHeads.forEach((k, v) -> {
-            nvp[index].setName(k);
-            nvp[index].setValue(v);
+            NameValuePair valuePair = new NameValuePair();
+            valuePair.setName(k);
+            valuePair.setValue(v);
+            nvp[index.get()] = valuePair;
+            index.getAndIncrement();
         });
 
         String[] results = storageClient.upload_file(filePath, storeExtName, nvp);
         Map<String, String> resultMap = new HashMap<>();
-        resultMap.put("groupId", results[0]);
-        resultMap.put("storePath", results[1]);
+        resultMap.put("group", results[0]);
+        resultMap.put("path", results[1]);
         return resultMap;
     }
 
-    private void Download(String group, String storePath, String localPath) throws IOException, MyException {
+    /**
+     *
+     * @param group 组名
+     * @param storePath 文件系统存储路径
+     * @param localPath 本地存储路劲
+     * @throws IOException
+     * @throws MyException
+     */
+    public void download(String group, String storePath, String localPath) throws IOException, MyException {
         byte[] fileBytes = storageClient.download_file(group, storePath);
 
         FileOutputStream fileOutputStream = new FileOutputStream(localPath);
@@ -64,7 +86,7 @@ public class FastDFSClient {
 
     public static void main(String[] args) throws IOException, MyException {
 
-        FastDFSClient client = new FastDFSClient("/etc/fdfs/client.conf");
+        FastDFSClient client = new FastDFSClient("/home/liyulong/IdeaProjects/fastdfs-java/conf/client.conf");
 //        NameValuePair nvp [] = new NameValuePair[]{
 //            new NameValuePair("age", "18"),
 //            new NameValuePair("sex", "male")
